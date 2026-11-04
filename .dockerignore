@@ -1,0 +1,12 @@
+.venv
+__pycache__
+.pytest_cache
+.env
+.git
+tests
+llama-cpp
+*.md
+tests-js
+package.json
+node_modules
+.coverage

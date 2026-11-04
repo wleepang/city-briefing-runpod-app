@@ -1,0 +1,1 @@
+{"input": {"openai_route": "/v1/chat/completions", "openai_input": {"messages": [{"role": "user", "content": "hi"}], "stream": true}}}

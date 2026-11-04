@@ -1,0 +1,11 @@
+{
+  "name": "city-briefing-frontend-tests",
+  "private": true,
+  "description": "Tests for the pure rendering helpers in public/render.js (the backend is Python; see README)",
+  "scripts": {
+    "test:frontend": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

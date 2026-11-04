@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>City Briefing</title>
+<style>
+  :root { --bg:#0f1420; --card:#171e2e; --ink:#e8ecf4; --mute:#8b96ad; --accent:#5eb0ff; --line:#26304a; }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin:0; font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  .sub { color: var(--mute); margin: 0 0 20px; }
+  form { display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 20px; }
+  input { flex:1 1 180px; padding:12px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--ink); font:inherit; }
+  button { padding:12px 18px; border:0; border-radius:10px; background:var(--accent); color:#06121f; font:inherit; font-weight:600; cursor:pointer; }
+  button:disabled { opacity:.6; cursor:wait; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:14px; }
+  .card h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:.08em; color:var(--mute); margin:0 0 10px; }
+  a.cite { text-decoration:none; font-size:.9em; white-space:nowrap; }
+  a.cite:hover { text-decoration:underline; }
+  .card:target { border-color:var(--accent); }
+  .credits { margin-top:28px; padding-top:14px; border-top:1px solid var(--line); font-size:.82rem; }
+  .src { margin-top:12px; font-size:.85rem; }
+  .answer > :first-child { margin-top:0; }
+  .answer > :last-child { margin-bottom:0; }
+  .answer p { margin:0 0 .75em; }
+  .answer h3, .answer h4 { margin:1em 0 .4em; font-size:1rem; }
+  .answer ul, .answer ol { margin:0 0 .75em; padding-left:1.4em; }
+  .answer li { margin:.2em 0; }
+  .caret { display:inline-block; width:.5em; height:1em; vertical-align:text-bottom; background:#9ca3af; animation:blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity:0; } }
+  .answer code { background:#111827; border-radius:4px; padding:1px 5px; font-size:.9em; }
+  .grid { display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
+  .day { background:#111827; border-radius:10px; padding:10px; text-align:center; }
+  .day b { display:block; margin-bottom:4px; }
+  .now { font-size:2rem; font-weight:700; }
+  .mute { color:var(--mute); }
+  a { color: var(--accent); }
+  .err { color:#ff8a8a; }
+  .hidden { display:none; }
+  .warn { background:#2a2312; border:1px solid #5c4a14; color:#f3d98b; border-radius:10px; padding:10px 12px; margin-bottom:14px; }
+  .warn ul { margin:0; padding-left:18px; }
+  .banner { border-radius:10px; padding:12px; margin-bottom:14px; }
+  .banner.err { background:#2b1517; border:1px solid #6b2a2f; }
+  .banner.load { background:var(--card); border:1px solid var(--line); display:flex; gap:10px; align-items:flex-start; }
+  .spin { width:16px; height:16px; margin-top:4px; flex:none; border:2px solid var(--line); border-top-color:var(--accent); border-radius:50%; animation:sp .8s linear infinite; }
+  @keyframes sp { to { transform:rotate(360deg); } }
+  .place { margin:0 0 14px; }
+  .place b { font-size:1.1rem; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; align-items:center; }
+  .chip { padding:4px 10px; border-radius:999px; border:1px solid var(--line); background:var(--card); color:var(--accent); font-size:.85rem; font-weight:500; }
+  .chip:hover { border-color:var(--accent); }
+  .nearby { margin:0; padding-left:18px; }
+  .nearby li { margin:4px 0; }
+  .steps { margin:6px 0 0; padding:0; list-style:none; font-size:.9rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>City Briefing</h1>
+  <p class="sub">Live data from Open-Meteo and Wikipedia, written up by an AI model running on RunPod.</p>
+
+  <form id="f">
+    <input id="city" placeholder="City (e.g. Lisbon)" value="San Diego" maxlength="80" required>
+    <button id="go">Brief me</button>
+  </form>
+
+  <div id="status" class="hidden" role="status" aria-live="polite"></div>
+
+  <section id="out" class="hidden">
+    <div id="place" class="place"></div>
+    <div id="warnings" class="warn hidden"></div>
+    <div class="card"><h2>AI briefing</h2><div id="answer" class="answer"></div></div>
+    <div class="card" id="card-open-meteo"><h2>Open-Meteo</h2><div id="wx"></div></div>
+    <div class="card" id="card-wikipedia"><h2>Wikipedia</h2><div id="wiki"></div></div>
+    <div class="card" id="nearbyCard"><h2>Nearby on Wikipedia</h2><ul id="nearby" class="nearby"></ul><div class="src mute">Articles and descriptions from <a href="https://www.wikipedia.org/" target="_blank" rel="noopener">Wikipedia</a> (<a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>)</div></div>
+  </section>
+
+  <footer class="credits mute">
+    <b>Data sources.</b>
+    Weather and place search: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>
+    (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>).
+    City summaries and nearby places: <a href="https://www.wikipedia.org/" target="_blank" rel="noopener">Wikipedia</a>
+    (text under <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>,
+    each article links to its authors and history).
+    The briefing is written by an AI model from this data and can contain mistakes.
+  </footer>
+</main>
+
+<script src="/render.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const COLD_START_HINT_SEC = 8;
+
+let timer;
+// The banner is built once; each tick only updates the timer text and the slow-start hint. (Rebuilding it
+// every second recreated the spinner element and restarted its animation, which looked like stuttering.)
+function showLoading() {
+  clearInterval(timer);
+  const t0 = Date.now();
+  $("status").className = "banner load";
+  $("status").innerHTML =
+    `<div class="spin"></div><div><b>Building your briefing… <span id="elapsed">0</span>s</b>
+     <ul class="steps mute"><li>Checking the weather</li><li>Reading about the city and what's nearby</li><li>Writing your briefing</li></ul>
+     <div id="slowHint" class="hidden" style="margin-top:8px">Waiting for an AI agent to start up. After a quiet spell this can take up to three minutes. The weather and places below are already live.</div></div>`;
+  timer = setInterval(() => {
+    const sec = Math.floor((Date.now() - t0) / 1000);
+    $("elapsed").textContent = sec;
+    $("slowHint").classList.toggle("hidden", sec < COLD_START_HINT_SEC);
+  }, 1000);
+}
+function hideLoading() { clearInterval(timer); $("status").className = "hidden"; }
+function showError(message, retryAfter) {
+  hideLoading();
+  $("status").className = "banner err";
+  $("status").innerHTML = `<b>Something went wrong.</b> ${esc(message)}` +
+    (retryAfter ? ` <span class="mute">Retry in ~${esc(retryAfter)}s.</span>` : "");
+}
+
+function renderWeather(w) {
+  const c = w.current;
+  $("wx").innerHTML =
+    `<div class="now">${Math.round(c.temp_f)}°F <span class="mute" style="font-size:1rem">${esc(c.conditions)}</span></div>
+     <div class="mute">Feels like ${Math.round(c.feels_like_f)}°F · ${esc(c.humidity_pct)}% humidity · wind ${Math.round(c.wind_mph)} mph</div>
+     <div class="grid" style="margin-top:12px">` +
+    w.forecast.map((d) =>
+      `<div class="day"><b>${esc(d.date.slice(5))}</b>${Math.round(d.high_f)}° / ${Math.round(d.low_f)}°<br><span class="mute">${esc(d.conditions)}<br>${esc(d.precip_chance_pct)}% rain</span></div>`
+    ).join("") + `</div>
+     <div class="src mute">Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>
+       ${String(w.source_url).startsWith("https://api.open-meteo.com/") ? `· <a href="${esc(w.source_url)}" target="_blank" rel="noopener">raw forecast (JSON)</a>` : ""}</div>`;
+}
+
+function renderNearby(items) {
+  $("nearbyCard").classList.toggle("hidden", !items.length);
+  $("nearby").innerHTML = items.map((n) =>
+    `<li><a href="${esc(n.url)}" target="_blank" rel="noopener">${esc(n.title)}</a>` +
+    (n.description ? ` <span class="mute">${esc(n.description)}</span>` : "") + `</li>`
+  ).join("");
+}
+
+function renderWiki(wk) {
+  $("wiki").innerHTML = wk
+    ? `<b>${esc(wk.title)}</b> <span class="mute">${esc(wk.description || "")}</span>
+       <p>${esc(wk.extract)}</p>
+       <div class="src mute">${wk.url ? `Source: <a href="${esc(wk.url)}" target="_blank" rel="noopener">${esc(wk.title)} on Wikipedia</a> · ` : "Source: Wikipedia · "}<a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a></div>`
+    : `<span class="mute">No Wikipedia summary available.</span>`;
+}
+
+const placeLabel = (p) => [p.name, p.region, p.country].filter(Boolean).join(", ");
+
+// Names are ambiguous (San Diego, CA vs TX vs Colombia): say which one we used and offer the others.
+function renderPlace(city, alternatives) {
+  $("place").innerHTML =
+    `<div class="mute">Showing results for</div><b>${esc(placeLabel(city))}</b>` +
+    (alternatives.length
+      ? `<div class="chips"><span class="mute">Not the right one?</span>` +
+        alternatives.map((a) => `<button type="button" class="chip" data-id="${esc(a.id)}">${esc(placeLabel(a))}</button>`).join("") +
+        `</div>`
+      : "");
+}
+
+function renderWarnings(warnings) {
+  $("warnings").className = warnings.length ? "warn" : "warn hidden";
+  $("warnings").innerHTML = "<ul>" + warnings.map((w) => `<li>${esc(w.message)}</li>`).join("") + "</ul>";
+}
+
+// The data (weather, city, places) arrives first and is shown at once; the answer then streams in word by word.
+// Unlike the other cards it can take a few minutes to start, which is what the waiting hint is for.
+async function load({ city, id }) {
+  $("go").disabled = true;
+  $("out").classList.add("hidden");
+  showLoading();
+
+  try {
+    const params = new URLSearchParams({ city });
+    if (id) params.set("id", id);
+    let res;
+    try { res = await fetch(`/api/briefing/stream?${params}`); } catch { throw { message: "Couldn't reach the server. Check your connection and try again." }; }
+    if (!res.ok) {
+      let data = {};
+      try { data = await res.json(); } catch { /* non-JSON error from a proxy */ }
+      throw { message: data.error || `Request failed (${res.status}).`, retryAfter: res.headers.get("retry-after") };
+    }
+
+    let nearby = [], warnings = [], text = "", finished = false;
+    const showAnswer = (streaming) => {
+      $("answer").innerHTML = text
+        ? renderMarkdown(text, nearby) + (streaming ? '<span class="caret"></span>' : "")
+        : `<span class="mute">${streaming ? "Waiting for the AI writer…" : "The AI briefing isn't available right now. The data below is still live."}</span>`;
+    };
+    const handle = ({ event, data }) => {
+      if (event === "briefing") {
+        nearby = data.nearby || [];
+        warnings = data.warnings || [];
+        renderPlace(data.city, data.alternatives || []);
+        renderWeather(data.weather);
+        renderWiki(data.wikipedia);
+        renderNearby(nearby);
+        renderWarnings(warnings);
+        showAnswer(true);
+        $("out").classList.remove("hidden");  // the loading banner stays until the answer starts
+      } else if (event === "delta") {
+        hideLoading();
+        text += data.text;
+        showAnswer(true);
+      } else if (event === "done") {
+        finished = true;
+        hideLoading();
+        text = data.answer;  // the cleaned final text replaces what was streamed
+        showAnswer(false);
+      } else if (event === "warning") {
+        finished = true;
+        hideLoading();
+        warnings = warnings.concat(data);
+        renderWarnings(warnings);
+        showAnswer(false);
+      }
+    };
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const parsed = parseSse(buffer + decoder.decode(value, { stream: true }));
+      buffer = parsed.rest;
+      parsed.events.forEach(handle);
+    }
+    if (!finished) handle({ event: "warning", data: { message: "The connection was interrupted before the briefing finished." } });
+  } catch (err) {
+    showError(err.message || "Unexpected error.", err.retryAfter);
+  } finally {
+    $("go").disabled = false;
+  }
+}
+
+$("f").addEventListener("submit", (e) => {
+  e.preventDefault();
+  load({ city: $("city").value });
+});
+
+// Picking an alternative re-requests with the exact place id (the city text is kept so the other matches are still listed).
+$("place").addEventListener("click", (e) => {
+  const chip = e.target.closest(".chip");
+  if (chip && !$("go").disabled) load({ city: $("city").value, id: chip.dataset.id });
+});
+</script>
+</body>
+</html>
